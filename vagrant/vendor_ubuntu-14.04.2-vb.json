@@ -1,0 +1,129 @@
+{
+    "builders": [
+        {
+            "boot_wait": "20s",
+            "boot_command": [
+                "<esc><esc><enter><wait>",
+                "<wait>",
+                "/install/vmlinuz noapic ",
+                "<wait>",
+                "preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/preseed.cfg ",
+                "debian-installer=en_US auto locale=en_US kbd-chooser/method=us ",
+                "hostname={{ user `hostname` }} ",
+                "fb=false debconf/frontend=noninteractive ",
+                "keyboard-configuration/modelcode=SKIP keyboard-configuration/layout=USA ",
+                "keyboard-configuration/variant=USA console-setup/ask_detect=false ",
+                "passwd/user-fullname={{ user `ssh_fullname` }} ",
+                "passwd/user-password={{ user `ssh_password` }} ",
+                "passwd/user-password-again={{ user `ssh_password` }} ",
+                "passwd/username={{ user `ssh_username` }} ",
+                "initrd=/install/initrd.gz -- <enter>"
+            ],
+            "disk_size": 5000,
+            "guest_additions_path": "VBoxGuestAdditions_{{.Version}}.iso",
+            "guest_os_type": "Ubuntu_64",
+            "headless": "{{ user `headless` }}",
+            "http_directory": "http",
+            "iso_checksum": "{{ user `iso_checksum` }}",
+            "iso_checksum_type": "{{ user `iso_checksum_type` }}",
+            "iso_urls": [
+                "{{ user `iso_path` }}/{{ user `iso_name` }}",
+                "{{ user `iso_url` }}"
+            ],
+            "shutdown_command": "echo '{{ user `ssh_password` }}'|sudo -S shutdown -P now",
+            "ssh_password": "{{ user `ssh_password` }}",
+            "ssh_username": "{{ user `ssh_username` }}",
+            "ssh_wait_timeout": "10000s",
+            "type": "virtualbox-iso",
+            "vboxmanage": [
+                [
+                    "modifyvm",
+                    "{{.Name}}",
+                    "--memory",
+                    "1024"
+                ],
+                [
+                    "modifyvm",
+                    "{{.Name}}",
+                    "--cpus",
+                    "2"
+                ]
+            ],
+            "virtualbox_version_file": ".vbox_version",
+            "shutdown_command": "echo '{{ user `ssh_password` }}'|sudo -S shutdown -P now",
+            "ssh_password": "{{ user `ssh_password` }}",
+            "ssh_username": "{{ user `ssh_username` }}",
+            "ssh_wait_timeout": "10000s",
+            "vm_name": "ubuntu-14.04.2"
+        }
+    ],
+    "post-processors": [
+        {
+            "keep_input_artifact": false,
+            "output": "box/{{.Provider}}/vendor_ubuntu-14.04.2-{{user `cm`}}{{user `cm_version`}}-{{user `version`}}.box",
+            "type": "vagrant"
+        }
+    ],
+    "provisioners": [
+        {
+            "environment_vars": [
+                "CM={{user `cm`}}",
+                "CM_VERSION={{user `cm_version`}}",
+                "CLEANUP_PAUSE={{user `cleanup_pause`}}",
+                "UPDATE={{user `update`}}",
+                "INSTALL_VAGRANT_KEY={{user `install_vagrant_key`}}",
+                "SSH_USERNAME={{user `ssh_username`}}",
+                "SSH_PASSWORD={{user `ssh_password`}}",
+                "GITHUB_USER={{user `github_user`}}",
+                "GITHUB_PASSWORD={{user `github_password`}}",
+                "MYSQL_PASSWORD={{user `mysql_password`}}",
+                "http_proxy={{user `http_proxy`}}",
+                "https_proxy={{user `https_proxy`}}",
+                "ftp_proxy={{user `ftp_proxy`}}",
+                "rsync_proxy={{user `rsync_proxy`}}",
+                "no_proxy={{user `no_proxy`}}"
+            ],
+            "execute_command": "echo '{{ user `ssh_password` }}' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+            "scripts": [
+                "script/update.sh",
+                "script/vagrant.sh",
+                "script/sshd.sh",
+                "script/vmtool.sh",
+                "script/minimize.sh",
+                "script/cleanup.sh",
+                "script/cmtool.sh",
+                "script/lamp.sh",
+                "script/tsunami_vendor.sh"
+            ],
+            "type": "shell"
+        }
+    ],
+    "variables": {
+        "cleanup_pause": "",
+        "cm": "nocm",
+        "cm_version": "",
+        "custom_script": ".",
+        "ftp_proxy": "{{env `ftp_proxy`}}",
+        "headless": "",
+        "http_proxy": "{{env `http_proxy`}}",
+        "https_proxy": "{{env `https_proxy`}}",
+        "install_vagrant_key": "1",
+        "iso_checksum": "83aabd8dcf1e8f469f3c72fff2375195",
+        "iso_checksum_type": "md5",
+        "iso_name": "ubuntu-14.04.2-server-amd64.iso",
+        "iso_path": "iso",
+        "iso_url": "http://releases.ubuntu.com/14.04/ubuntu-14.04.2-server-amd64.iso",
+        "no_proxy": "{{env `no_proxy`}}",
+        "rsync_proxy": "{{env `rsync_proxy`}}",
+        "hostname": "vagrant",
+        "ssh_fullname": "vagrant",
+        "ssh_password": "vagrant",
+        "ssh_username": "vagrant",
+        "mysql_password": "12345",
+        "github_user": "tsunami-deploy",
+        "github_password": "wiaf%iek5Vee9eim1aef}ekiexooy",
+        "update": "false",
+        "version": "0.1.0",
+        "preseed": "preseed.cfg"
+    }
+}

@@ -1,0 +1,130 @@
+{
+    "builders": [
+        {
+            "boot_command": [
+                "<esc><esc><enter><wait>",
+                "/install/vmlinuz auto",
+                " console-setup/ask_detect=false",
+                " console-setup/layoutcode=us",
+                " console-setup/modelcode=pc105",
+                " debconf/frontend=noninteractive",
+                " debian-installer=en_US",
+                " fb=false",
+                " initrd=/install/initrd.gz",
+                " kbd-chooser/method=us",
+                " keyboard-configuration/layout=USA",
+                " keyboard-configuration/variant=USA",
+                " locale=en_US",
+                " netcfg/get_domain=vm",
+                " netcfg/get_hostname={{ user `hostname` }}",
+                " passwd/user-fullname={{ user `ssh_fullname` }}",
+                " passwd/user-password={{ user `ssh_password` }}",
+                " passwd/user-password-again={{ user `ssh_password` }}",
+                " passwd/username={{ user `ssh_username` }}",
+                " noapic",
+                " preseed/url=http://{{ .HTTPIP }}:{{ .HTTPPort }}/{{ user `preseed` }}",
+                " -- ",
+                "<enter>"
+            ],
+            "disk_size": 5000,
+            "guest_os_type": "ubuntu",
+            "http_directory": "http",
+            "iso_checksum": "{{ user `iso_checksum` }}",
+            "iso_checksum_type": "{{ user `iso_checksum_type` }}",
+            "iso_url": "{{ user `iso_url` }}",
+            "parallels_tools_flavor": "lin",
+            "prlctl": [
+                [
+                    "set",
+                    "{{.Name}}",
+                    "--memsize",
+                    "1024"
+                ],
+                [
+                    "set",
+                    "{{.Name}}",
+                    "--cpus",
+                    "2"
+                ]
+            ],
+            "prlctl_version_file": ".prlctl_version",
+            "shutdown_command": "echo '{{ user `ssh_password` }}'|sudo -S shutdown -P now",
+            "ssh_password": "{{ user `ssh_password` }}",
+            "ssh_username": "{{ user `ssh_username` }}",
+            "ssh_wait_timeout": "10000s",
+            "type": "parallels-iso",
+            "vm_name": "ubuntu-12.04.5"
+        }
+    ],
+    "post-processors": [
+        {
+            "keep_input_artifact": false,
+            "output": "box/{{.Provider}}/vendor_ubuntu-12.04.5-{{user `cm`}}{{user `cm_version`}}-{{user `version`}}.box",
+            "type": "vagrant"
+        }
+    ],
+    "provisioners": [
+        {
+            "environment_vars": [
+                "CM={{user `cm`}}",
+                "CM_VERSION={{user `cm_version`}}",
+                "CLEANUP_PAUSE={{user `cleanup_pause`}}",
+                "UPDATE={{user `update`}}",
+                "INSTALL_VAGRANT_KEY={{user `install_vagrant_key`}}",
+                "SSH_USERNAME={{user `ssh_username`}}",
+                "SSH_PASSWORD={{user `ssh_password`}}",
+                "GITHUB_USER={{user `github_user`}}",
+                "GITHUB_PASSWORD={{user `github_password`}}",
+                "MYSQL_PASSWORD={{user `mysql_password`}}",
+                "http_proxy={{user `http_proxy`}}",
+                "https_proxy={{user `https_proxy`}}",
+                "ftp_proxy={{user `ftp_proxy`}}",
+                "rsync_proxy={{user `rsync_proxy`}}",
+                "no_proxy={{user `no_proxy`}}",
+                "PACKER_LOG=debug",
+                "PACKER_LOG_PATH=~/NetBeansProjects/tsunami/www/vagrant/packer.log"
+            ],
+            "execute_command": "echo '{{ user `ssh_password` }}' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+            "scripts": [
+                "script/update.sh",
+                "script/vagrant.sh",
+                "script/sshd.sh",
+                "script/vmtool.sh",
+                "script/minimize.sh",
+                "script/cleanup.sh",
+                "script/cmtool.sh",
+                "script/lamp.sh",
+                "script/tsunami_vendor.sh"
+            ],
+            "type": "shell"
+        }
+    ],
+    "variables": {
+        "cleanup_pause": "",
+        "cm": "nocm",
+        "cm_version": "",
+        "custom_script": ".",
+        "ftp_proxy": "{{env `ftp_proxy`}}",
+        "headless": "",
+        "http_proxy": "{{env `http_proxy`}}",
+        "https_proxy": "{{env `https_proxy`}}",
+        "install_vagrant_key": true,
+        "iso_checksum": "769474248a3897f4865817446f9a4a53",
+        "iso_checksum_type": "md5",
+        "iso_name": "ubuntu-12.04.5-server-amd64.iso",
+        "iso_path": "iso",
+        "iso_url": "http://releases.ubuntu.com/12.04/ubuntu-12.04.5-server-amd64.iso",
+        "no_proxy": "{{env `no_proxy`}}",
+        "rsync_proxy": "{{env `rsync_proxy`}}",
+        "hostname": "vagrant",
+        "ssh_fullname": "vagrant",
+        "ssh_password": "vagrant",
+        "ssh_username": "vagrant",
+        "mysql_password": "12345",
+        "github_user": "tsunami-deploy",
+        "github_password": "wiaf%iek5Vee9eim1aef}ekiexooy",
+        "update": "false",
+        "version": "0.1.0",
+        "preseed": "preseed.cfg"
+    }
+}

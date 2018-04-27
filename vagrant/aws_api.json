@@ -1,0 +1,88 @@
+{
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "access_key": "{{user `aws_access_key`}}",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "region": "us-west-2",
+            "source_ami": "ami-5189a661",
+            "instance_type": "t2.micro",
+            "ssh_username": "ubuntu",
+            "ami_name": "tsunami-api-instance-box {{timestamp}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "environment_vars": [
+                "AWS_ACCESS_KEY={{user `aws_access_key`}}",
+                "AWS_SECRET_KEY={{user `aws_secret_key`}}",
+                "CM={{user `cm`}}",
+                "CM_VERSION={{user `cm_version`}}",
+                "CLEANUP_PAUSE={{user `cleanup_pause`}}",
+                "UPDATE={{user `update`}}",
+                "INSTALL_VAGRANT_KEY={{user `install_vagrant_key`}}",
+                "SSH_USERNAME={{user `ssh_username`}}",
+                "SSH_PASSWORD={{user `ssh_password`}}",
+                "GITHUB_USER={{user `github_user`}}",
+                "GITHUB_PASSWORD={{user `github_password`}}",
+                "MYSQL_PASSWORD={{user `mysql_password`}}",
+                "RABBITMQ_HOST={{user `rabbitmq_host`}}",
+                "RABBITMQ_COMMON_PORT={{user `rabbitmq_common_port`}}",
+                "RABBITMQ_CONTROL_PORT={{user `rabbitmq_control_port`}}",
+                "RABBITMQ_USER={{user `rabbitmq_user`}}",
+                "RABBITMQ_PASSWORD={{user `rabbitmq_password`}}",
+                "RABBITMQ_EXCHANGE={{user `rabbitmq_exchange`}}",
+                "TSUNAMI_API_PROTOCOL={{user `tsunami_api_protocol`}}",
+                "TSUNAMI_VENDOR_PUBLIC_KEY={{user `tsunami_vendor_public_key`}}",
+                "TSUNAMI_VENDOR_PRIVATE_KEY={{user `tsunami_vendor_private_key`}}",
+                "TSUNAMI_DEFAULT_USER={{user `tsunami_default_user`}}",
+                "TSUNAMI_DEFAULT_USER_PUBLIC_KEY={{user `tsunami_default_user_public_key`}}",
+                "TSUNAMI_DEFAULT_USER_PRIVATE_KEY={{user `tsunami_default_user_private_key`}}",
+                "rsync_proxy={{user `rsync_proxy`}}",
+                "no_proxy={{user `no_proxy`}}"
+            ],
+            "execute_command": "echo '{{ user `ssh_password` }}' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+            "scripts": [
+                "script/update.sh",
+                "script/lamp.sh",
+                "script/tsunami_api.sh"
+            ],
+            "type": "shell"
+        }
+    ],
+    "variables": {
+        "cleanup_pause": "",
+        "cm": "nocm",
+        "cm_version": "",
+        "custom_script": ".",
+        "ftp_proxy": "{{env `ftp_proxy`}}",
+        "headless": "",
+        "http_proxy": "{{env `http_proxy`}}",
+        "https_proxy": "{{env `https_proxy`}}",
+        "install_vagrant_key": "true",
+        "no_proxy": "{{env `no_proxy`}}",
+        "rsync_proxy": "{{env `rsync_proxy`}}",
+        "hostname": "ubuntu",
+        "ssh_fullname": "ubuntu",
+        "ssh_password": "ubuntu",
+        "ssh_username": "ubuntu",
+        "mysql_password": "",
+        "github_user": "",
+        "github_password": "",
+        "rabbitmq_host": "localhost",
+        "rabbitmq_common_port": "5677",
+        "rabbitmq_control_port": "13313",
+        "rabbitmq_user": "guest",
+        "rabbitmq_password": "ieL0eh2Sing1",
+        "rabbitmq_exchange": "jobs",
+        "tsunami_api_protocol": "http",
+        "tsunami_vendor_public_key": "",
+        "tsunami_vendor_private_key": "",
+        "tsunami_default_user": "tsunamisu",
+        "tsunami_default_user_public_key": "",
+        "tsunami_default_user_private_key": "",
+        "update": "false",
+        "version": "0.1.0",
+        "preseed": "preseed.cfg"
+    }
+}

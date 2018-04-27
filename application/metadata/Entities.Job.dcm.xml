@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping http://doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <entity name="Entities\Job" table="jobs">
+        <lifecycle-callbacks>
+            <lifecycle-callback type="prePersist" method="prePersist"/>
+            <lifecycle-callback type="preUpdate" method="preUpdate"/>
+        </lifecycle-callbacks>
+        <id name="id" type="integer" column="id">
+            <generator strategy="IDENTITY"/>
+        </id>
+        <field name="subQueryId" type="integer" column="sub_query_id" nullable="false"/>
+        <field name="carrierId" type="integer" column="carrier_id" nullable="false"/>
+        <field name="esn" type="string" column="esn" length="140" nullable="false"/>
+        <field name="started" type="datetime" column="started" nullable="true"/>
+        <field name="canceled" type="datetime" column="canceled" nullable="true"/>
+        <field name="completed" type="datetime" column="completed" nullable="true"/>
+        <field name="failed" type="datetime" column="failed" nullable="true"/>
+        <field name="status" type="string" column="status" length="100" nullable="true"/>
+        <field name="statusDetails" type="string" column="status_details" length="500" nullable="true"/>
+        <field name="pid" type="string" column="pid" length="10" nullable="true"/>
+        <field name="created" type="datetime" column="created" nullable="false"/>
+        <field name="modified" type="datetime" column="modified" nullable="false"/>
+    </entity>
+</doctrine-mapping>

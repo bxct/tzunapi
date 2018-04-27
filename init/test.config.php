@@ -1,0 +1,111 @@
+<?php
+
+/**
+ * Describes the environment application is run in: development/test/staging/production
+ * @
+ */
+\Config::write('environment', 'development');
+
+/**
+ * Specify some required params according to what environment has been set
+ */
+switch (\Config::read('environment')) {
+    case 'production':
+    case 'staging':
+        \Config::write('debug', false);
+        break;
+    case 'test':
+    default:
+        \Config::write('debug', true);
+        break;
+}
+
+/**
+ * Overrides debug values set before according to the environment
+ */
+\Config::write('debug', true);
+
+/**
+ * Database driver and connection credentials
+ */
+\Config::write('database', array(
+    'dbname' => 'tsunami_test',
+    'user' => 'tsunami',
+    'password' => 'tsunami',
+    'host' => '127.0.0.1',
+    'driver' => 'pdo_mysql', //Database driver Doctrine ORM will use. Defaults to 'pdo_mysql' as database is built in MySQL
+));
+
+/**
+ * API endpoint settings
+ */
+\Config::write('host_protocol', 'http');
+\Config::write('host_endpoint', 'api.tzunapi.com');
+\Config::write('aws_access_key_id', '[AWS_ACCESS_KEY]');
+\Config::write('aws_secret_access_key', '[AWS_SECRET_KEY]');
+\Config::write('amis', array(
+    0 => array('ami' => 'ami-id', 'region' => 'us-west-2')
+));
+
+/**
+ * Date and time settings
+ */
+\Config::write('default_timezone', 'America/Los_Angeles');
+
+/**
+ * Default available API version
+ */
+\Config::write('stable_version', '0.1');
+
+/**
+ * Default response format
+ */
+\Config::write('default_output_format', 'json');
+
+/**
+ * List of carriers supported by any Vendor by default
+ */
+\Config::write('default_carriers', array('Lorem', 'Ipsum', 'Dolor', 'Sit', 'Amet', 'Consectetur', 'Adipiscing', 'Elit'));
+
+/**
+ * Max attempts on ESN per carrier using various Vendors
+ */
+\Config::write('max_carrier_attempts', 3);
+
+/**
+ * Defines very strict debugging mode when application is interrupted with an exception thrown
+ * for every, even smallest, error
+ */
+\Config::write('strict_reporting', false);
+
+/**
+ * Determines whether to put all logs of the same type inside a folder named after the type or leave
+ * in a single folder distinguished by name prefix
+ */
+\Config::write('use_type_folder_for_logging', false);
+
+/**
+ * CLI access user
+ */
+\Config::write('cli_public_key', '');
+\Config::write('cli_private_key', '');
+
+/**
+ * Password protection settings
+ */
+\Config::write('password_salt', 'RaNdOm pAsSwOrD SaLt');
+
+/**
+ * Number of jobs the vendor takes on each processing iteration
+ */
+\Config::write('jobs_limit_per_process_iteration', 3);
+
+/**
+ * Number of parallel processes fetching RabbitMQ messages
+ */
+\Config::write('parallel_amqp_listeners_limit', 10);
+
+/**
+ * Job Publisher
+ */
+\Config::write('job_publisher', 'Amqp');

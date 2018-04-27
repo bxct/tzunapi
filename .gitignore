@@ -1,0 +1,14 @@
+/nbproject/private/
+/init/config.php
+/vendor/
+/composer.lock
+/init/client.config.php
+/logs/
+/webroot/tests/
+/vagrant/ubuntu-12.04.5-server-amd64.iso
+/vagrant/ubuntu-14.04.2-server-amd64.iso
+/vagrant/packer_cache/
+/vagrant/Tsunami Vagrant.komodoproject
+/vagrant/instances/
+/vagrant/box/
+/nbproject/

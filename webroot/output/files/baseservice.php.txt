@@ -1,0 +1,63 @@
+<?php
+
+namespace Services_0_1;
+
+/**
+ * Class which provides properties and methods common for all the services API supplies.
+ * Has to be inherited by every service class.
+ */
+class BaseService implements \Interfaces\ApiService {
+
+    /**
+     * Holds the instance of User entity detected by his public key
+     * 
+     * @var \Entities\User
+     */
+    protected $authorizedUser = null;
+    
+    /**
+     * Determines if the request was protected with appropriate signature
+     * 
+     * @var boolean
+     */
+    protected $sealed = false;
+
+    /**
+     * Standard constructor - common for all services
+     * 
+     * @param \Entities\User $authData
+     * @param boolean $sealed
+     */
+    public function __construct($authData = null, $sealed = false) {
+        $this->authorizedUser = $authData;
+        $this->sealed = $sealed;
+    }
+    
+    /**
+     * Informs if a user with specified associated public key is identified
+     * 
+     * @return boolean
+     */
+    public function userDetected() {
+        return !empty($this->authorizedUser);
+    }
+    
+    /**
+     * Detects whether or not request was protected with proper signature
+     * 
+     * @return boolean
+     */
+    public function sealed() {
+        return $this->sealed;
+    }
+    
+    /**
+     * Detects if user is not a guest (some User entry is found)
+     * 
+     * @return boolean
+     */
+    public function authorized() {
+        return ($this->userDetected() && $this->sealed());
+    }
+}
+

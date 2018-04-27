@@ -1,0 +1,242 @@
+<?php
+
+/**
+ * Describes the environment application is run in: development/test/staging/production
+ * @
+ */
+\Config::write('environment', 'development');
+
+/**
+ * Specify some required params according to what environment has been set
+ */
+switch (\Config::read('environment')) {
+    case 'production':
+    case 'staging':
+        \Config::write('debug', false);
+        break;
+    case 'test':
+    default:
+        \Config::write('debug', true);
+        break;
+}
+
+/**
+ * Date and time settings
+ */
+\Config::write('default_timezone', 'America/Los_Angeles');
+
+/**
+ * Default available API version
+ */
+\Config::write('stable_version', '0.1');
+
+\Config::write('available_operations', array(
+   
+    'vendors' => array(
+        'add' => array(
+            'hostname' => false,
+            'request_method' => false,
+        ),
+        'enable' => array(
+            'hostname' => false,
+            'request_method' => false,
+        ),
+        'disable' => array(
+            'hostname' => false,
+            'request_method' => false,
+        ),
+        'attach_carrier' => array(
+            'vendor' => false,
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        'detach_carrier' => array(
+            'vendor' => false,
+            'carrier' => false,
+            'request_method' => false,
+        ),
+    ),
+    
+    'query' => array(
+        'add' => array(
+            'esn' => false,
+            'carrier_id' => false,
+            'user_id' => false,
+            'force' => false,
+            'sealed' => false,
+        ),
+        'cancel' => array(
+            'esn' => false,
+            'user_id' => false,
+            'sealed' => false,
+        ),  
+        'poll' => array(
+            'esn' => false,
+            'user_id' => false,
+            'sealed' => false,
+        ),  
+        'status_callback' => array(
+            'sub_query_id' => false,
+            'status' => false,
+            'status_details' => false,
+            'user_id' => false,
+        ),  
+    ),
+    
+    'carriers' => array(
+        'add' => array(
+            'title' => false,
+            'request_method' => false,
+        ),
+        'disable' => array(
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        'enable' => array(
+            'carrier' => false,
+            'request_method' => false,
+        ),
+    ),
+    
+    'maintenance' => array(
+        'index' => array(
+            'request_method' => null,
+        ),
+        'query_status' => array(
+            'request_method' => null,
+        ),
+        'add_carrier' => array(
+            'title' => false,
+            'request_method' => false,
+        ),
+        'enable_carrier' => array(
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        'disable_carrier' => array(
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        
+        'add_vendor' => array(
+            'hostname' => false,
+            'request_method' => false,
+        ),
+        'enable_vendor' => array(
+            'vendor' => false,
+            'request_method' => false,
+        ),
+        'disable_vendor' => array(
+            'vendor' => false,
+            'request_method' => false,
+        ),
+        'add_vendor_carrier' => array(
+            'vendor' => false,
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        'detach_vendor_carrier' => array(
+            'vendor' => false,
+            'carrier' => false,
+            'request_method' => false,
+        ),
+        'cancel_query' => array(           
+            'request_method' => false,
+        ),
+    ),
+    
+    'jobs' => array(
+        'add' => array(
+            'esn' => false,
+            'sub_query_id' => false,
+            'carrier_id' => false,
+            'user_id' => false,
+            'sealed' => false,
+        ),
+        'poll' => array(
+            'sub_query_id' => false,            
+            'user_id' => false,
+            'sealed' => false,
+        ),
+       'process' => array(
+            'sealed' => false,            
+            'request_method' => false,
+        ),
+        'cancel' => array(
+            'sub_query_id' => false,            
+            'user_id' => false,
+            'sealed' => false,
+        ),
+    ),
+    
+    'devices' => array(
+        'create' => array(
+            'esn' => false,           
+            'user_id' => false,
+            'sealed' => false,
+        ),
+        'read' => array(
+            'esn' => '',           
+            'user_id' => '',
+            'sealed' => '',
+        ),
+    ),
+    
+    'cron' => array(
+        'check_unassigned_sub_queries' => array(
+            'request_method' => '',
+        ),
+        'check_old_sub_queries' => array(
+            'request_method' => '',
+        ),
+        'query_canceled' => array(
+            'request_method' => '',
+        ),
+    ),    
+   
+));
+
+/**
+ * Default response format
+ */
+\Config::write('default_output_format', 'json');
+
+/**
+ * List of carriers supported by any Vendor by default
+ */
+\Config::write('default_carriers', array('Verizon', 'Sprint', 'T-Mobile'));
+
+/**
+ * Max attempts on ESN per carrier using various Vendors
+ */
+\Config::write('max_carrier_attempts', 3);
+
+/**
+ * Defines very strict debugging mode when application is interrupted with an exception thrown
+ * for every, even smallest, error
+ */
+\Config::write('strict_reporting', false);
+
+/**
+ * Determines whether to put all logs of the same type inside a folder named after the type or leave
+ * in a single folder distinguished by name prefix
+ */
+\Config::write('use_type_folder_for_logging', false);
+
+/**
+ * Host of frontend API application containing primary database
+ */
+\Config::write('api_protocol', 'http');
+\Config::write('api_endpoint', 'tsunapi.dev');
+
+/**
+ * Keys to provide a secure connection to the frontend API application
+ */
+\Config::write('public_key', '');
+\Config::write('private_key', '');
+
+/**
+ * Date and time settings
+ */
+\Config::write('default_timezone', 'America/Los_Angeles');
+

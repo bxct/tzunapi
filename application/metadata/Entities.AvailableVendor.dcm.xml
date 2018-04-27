@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<doctrine-mapping xmlns="http://doctrine-project.org/schemas/orm/doctrine-mapping" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping http://doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
+    <entity name="Entities\AvailableVendor" table="vendors" repository-class="Repositories\VendorRepository">
+        <lifecycle-callbacks>
+            <lifecycle-callback type="prePersist" method="prePersist"/>
+            <lifecycle-callback type="preUpdate" method="preUpdate"/>
+        </lifecycle-callbacks>
+        <id name="carrierId" type="integer" column="carrier_id">
+            <generator strategy="IDENTITY"/>
+        </id>
+        <field name="hostname" type="string" column="hostname" length="150" nullable="false"/>
+        <field name="stackSize" type="integer" column="stack_size" nullable="true"/>
+        <field name="completed" type="integer" column="completed" nullable="true"/>
+        <field name="failed" type="integer" column="failed" nullable="true"/>
+        <field name="id" type="integer" column="id" nullable="true"/>
+        <field name="activeJobs" type="integer" column="active_jobs" nullable="true"/>
+        <field name="activated" type="datetime" column="activated" nullable="true"/>
+        <field name="disabled" type="datetime" column="disabled" nullable="true"/>
+        <field name="created" type="datetime" column="created" nullable="false"/>
+        <field name="modified" type="datetime" column="modified" nullable="false"/>
+    </entity>
+</doctrine-mapping>

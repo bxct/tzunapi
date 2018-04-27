@@ -1,0 +1,446 @@
+<?php
+/**
+ * This file holds the Query service class
+ *
+ * @copyright (c) 2015, TzunAPI
+ * @author Anton Matiyenko <amatiyenko@gmail.com>
+ *
+ */
+
+namespace Services_0_1;
+
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
+use Doctrine\ORM\Query\ResultSetMapping;
+
+/**
+ * Class maintains all primary ESN-related functionality.
+ * Functions to create (add()), cancel (cancel()) and check (poll()) status of the created ESN query
+ */
+class Query extends \Services_0_1\BaseService {
+
+    /**
+     * Adds a new Query with specified ESN to be checked in database of every supported carrier
+     * 
+     * @param string $esn the ESN number of device to be checked
+     * @param integer $carrier_id the integer ID of the carrier to exclusively check ESN status on (other are skipped, default is "false") (1 - 'Verizon', 2 - 'AT&T', 3 - 'Sprint', 4 - 'T-Mobile', )
+     * @param integer $user_id internal ID of the user with specified keypair - always overriden internally
+     * @param boolean $force provides way to run fresh ESN verification query before the 24h period since last check passed
+     * @param boolean $sealed specifies if API call has been properly secured by the keypair - always overridden internally by the system; means that only authorized calls are possible
+     * 
+     * @return \Entities\Query encoded array of all status data
+     * <pre>
+     * stdClass Object
+     * (
+     *     [status] => success
+     *     [body] => stdClass Object
+     *         (
+     *             [message] => Query has been added.
+     *             [query] => stdClass Object
+     *                 (
+     *                     [deviceId] => 10
+     *                     [userId] => 20
+     *                     [esn] => 355537053337715
+     *                     [started] => stdClass Object
+     *                         (
+     *                             [date] => 2015-07-30 17:17:29
+     *                             [timezone_type] => 3
+     *                             [timezone] => America/Los_Angeles
+     *                         )
+     * 
+     *                     [canceled] => 
+     *                     [completed] => 
+     *                     [failed] => 
+     *                     [status] => 
+     *                     [statusDetails] => 
+     *                     [created] => stdClass Object
+     *                         (
+     *                             [date] => 2015-07-30 17:17:29
+     *                             [timezone_type] => 3
+     *                             [timezone] => America/Los_Angeles
+     *                         )
+     * 
+     *                     [modified] => stdClass Object
+     *                         (
+     *                             [date] => 2015-07-30 17:17:29
+     *                             [timezone_type] => 3
+     *                             [timezone] => America/Los_Angeles
+     *                         )
+     * 
+     *                     [id] => 11
+     *                 )
+     * 
+     *         )
+     * )
+     * </pre>
+     * 
+     * @throws \MissingParameterException
+     * @throws \WrongParametersException
+     * @throws \SystemFailureException
+     * @throws \NoAccessException
+     */
+    public static function add($esn = false, $carrier_id = false, $user_id = false, $force = false, $sealed = false) {
+        if(!$esn) {
+            throw \ExceptionHandler::missingParameterException(__('You must specify ESN to create new query'));
+        }
+        if(!$user_id) {
+            throw \ExceptionHandler::missingParameterException(__('You must be authorized to create new query'));
+        }
+        if($sealed) {
+            //Create device by calling respective service operation (or find existing)
+            if($device = \Services_0_1\Devices::create($esn, $user_id, $sealed)) {
+                //Fetch list of active carriers
+                if($supportedCarriers = \DS::getEntityManager()->getRepository('Entities\Carrier')->findActive()) {
+                    //Find similar queries within last 24 hours ...
+                    $now = new \DateTime();
+                    $criteria = new \Doctrine\Common\Collections\Criteria();
+                    $criteria->where($criteria->expr()->gt('created', $now->add(\DateInterval::createFromDateString('-1 day'))));
+                    $criteria->andWhere($criteria->expr()->eq('userId', (int)$user_id));
+                    $criteria->andWhere($criteria->expr()->eq('deviceId', $device->getId()));
+                    $criteria->andWhere($criteria->expr()->eq('esn', $device->getEsn()));
+                    $existingQueries = \DS::getEntityManager()->getRepository('Entities\Query')->matching($criteria);
+                    // ... and if query does not exist or force parameter is specified ...
+                    if($existingQueries->isEmpty() || $force) {
+                        // ... create new query ... 
+                        $query = new \Entities\Query();
+                        $query->setDevice($device);
+                        \DS::getEntityManager()->persist($query);
+                        \DS::getEntityManager()->flush();
+                        /**
+                         * For each carrier => fetch the active Vendor with the least load at the moment (stack_size - (completed + failed)) and least number of failures
+                         */
+                        $rsm = new ResultSetMappingBuilder(\DS::getEM());
+                        $rsm->addRootEntityFromClassMetadata('\Entities\AvailableVendor', 'v');
+                        $sql = "SELECT q.* FROM (SELECT 
+    v.*, 
+    cv.`carrier_id`,
+    (v.`stack_size`-v.`completed`-v.`failed`) AS active_jobs
+FROM 
+    `carriers_vendors` cv
+    RIGHT JOIN `vendors` v 
+        ON v.`id` = cv.`vendor_id`
+WHERE 
+    v.disabled IS NULL
+    AND v.activated IS NOT NULL
+ORDER BY 
+    v.`failed` ASC,
+    (v.`stack_size`-v.`completed`-v.`failed`) ASC,
+    v.`stack_size` ASC) q
+GROUP BY q.`carrier_id`;";
+                        $q = \DS::getEM()->createNativeQuery($sql, $rsm);
+                        $vendors = $q->getResult();
+                        $vendorsByCarrier = array();
+                        if(!empty($vendors)) {
+                            foreach($vendors as $k => $v){
+                                unset($vendors[$k]);
+                                $vendorsByCarrier[$v->getCarrierId()] = $v;
+                            }
+                        }
+                        
+                        //Create SubQuery and assign corresponding Job to each responsible carrier
+                        foreach($supportedCarriers as $cId => &$supportedCarrier) {
+                            if($carrier_id) {
+                                if($cId != $carrier_id) {
+                                    continue;
+                                }
+                            }
+                            $subQuery = new \Entities\SubQuery();
+                            $subQuery->setCarrierId($supportedCarrier->getId());
+                            $subQuery->setQueryId($query->getId());
+                            $subQuery->setEsn($query->getEsn());
+                            $subQuery->setAttempts(0);
+                            if(array_key_exists($supportedCarrier->getId(), $vendorsByCarrier)) {
+                                $subQuery->setVendorId($vendorsByCarrier[$supportedCarrier->getId()]->getId());
+                                $subQuery->setAttempts(1);
+                                //Increment Vendor stack
+                                $q = \DS::getEM()->createQuery('UPDATE \Entities\Vendor v SET v.stackSize=(v.stackSize+1) WHERE v.id = :vid');
+                                $q->setParameter('vid', $vendorsByCarrier[$supportedCarrier->getId()]->getId());
+                                $q->execute();
+                            }
+                            \DS::getEM()->persist($subQuery);
+                            \DS::getEM()->flush();
+                            /**
+                             * @todo defer processing of this action via RabbitMQ
+                             */
+                            if(array_key_exists($supportedCarrier->getId(), $vendorsByCarrier)) {
+                                $subQuery->publish($vendorsByCarrier[$supportedCarrier->getId()]);
+                            }
+                        }
+                        $query->setStarted(new \DateTime());
+                        \DS::getEM()->persist($query);
+                        \DS::getEM()->flush();
+                    } else {
+                        // ... or throw \MissingParameterException to let client know that such Query already exists.
+                        throw \ExceptionHandler::wrongParametersException(__('Query already exists. To override exiting query, pass parameter "force=true".'));
+                    }
+                } else {
+                    throw \ExceptionHandler::systemFailureException(__('Data mismatch. Try again later.'));
+                }
+            }
+        } else {
+            throw \ExceptionHandler::noAccessException(__('Access not allowed'));
+        }
+        
+        $response = new \stdClass();
+        $response->message = __('Query has been added.');
+        $response->query = $query;
+        
+        return $response;
+    }
+    
+    /**
+     * Cancels the in-progress query if it is possible to do
+     * 
+     * @param string $esn the ESN of device to search the query for 
+     * @param integer $user_id internal ID of the user with specified keypair - always overriden internally
+     * @param boolean $sealed specifies if API call has been properly secured by the keypair - always overridden internally by the system; means that only authorized calls are possible
+     * 
+     * @throws \WrongParametersException
+     */
+    public static function cancel($esn = false, $user_id = false, $sealed = false) {
+        
+        if(!$esn) {
+            throw \ExceptionHandler::missingParameterException(__('You must specify ESN to cancel query'));
+        }
+        if(!$user_id) {
+            throw \ExceptionHandler::missingParameterException(__('You must be authorized to cancel query'));
+        }
+        if(!$sealed) {
+            throw \ExceptionHandler::noAccessException(__('Access not allowed'));
+        }
+        
+        //Find Query with specified ESN (must not be canceled/completed/failed)
+        /**
+         * @todo make query cancellable only by owner/SU/CLI users
+         */
+        $queries = \DS::getEM()->getRepository('\Entities\Query')->findBy(array('esn' => $esn, 'completed' => null, 'canceled' => null, 'failed' => null));
+        if(empty($queries)) {
+            throw \ExceptionHandler::wrongParametersException(__('Query does not exist or can not be canceled.'));
+        } else {
+            foreach($queries as &$query) {
+                //Find SubQueries associated with a query found and stop and update status for each
+                $subQueries = \DS::getEM()->getRepository('\Entities\SubQuery')->findBy(array('queryId' => $query->getId(), 'completed' => null, 'canceled' => null, 'failed' => null));
+                if(!empty($subQueries)) {
+                    foreach($subQueries as &$subQuery) {
+                        /**
+                         * @todo defer Job cancelation through RabbitMQ if necessary
+                         */
+                        if($subQuery->stop()) {
+                            $subQuery->setCanceled(new \DateTime());
+                            $subQuery->setStatus('canceled');
+                            $subQuery->setStatusDetails('Canceled by client');
+                            \DS::getEM()->persist($subQuery);
+                            \DS::getEM()->flush(); //important to flush right away to avoid status changes by other processes
+                            //Update Vendor statistics: completed+1
+                            $q = \DS::getEM()->createQuery('UPDATE \Entities\Vendor v SET v.completed=(v.completed+1) WHERE v.id = :vid');
+                            $q->setParameter('vid', $subQuery->getVendorId());
+                            $q->execute();
+                        }
+                    }
+                }
+                $query->setCanceled(new \DateTime());
+                $query->setStatus('canceled');
+                $query->setStatusDetails('Canceled by client');
+                \DS::getEM()->persist($query);
+                \DS::getEM()->flush(); //important to flush right away to avoid status changes by other processes
+            }
+        }
+        
+        $response = new \stdClass();
+        $response->message = __('Query has been canceled');
+        $response->query = $queries;
+        
+        return $response;
+    }
+    
+    /**
+     * Returns the full information on status of Query latest for specified ESN
+     * 
+     * @param string $esn the ESN of device to search the query for 
+     * @param integer $user_id internal ID of the user with specified keypair - always overriden internally
+     * @param boolean $sealed specifies if API call has been properly secured by the keypair - always overridden internally by the system; means that only authorized calls are possible
+     *  
+     * @return \stdClass the complete overall and per-carrier status details of ESN query
+     * * 
+     * <pre>
+     * stdClass Object
+     * (
+     *     [status] => success
+     *     [body] => stdClass Object
+     *         (
+     *             [status] => in_progress
+     *             [status_details] => 
+     *             [carriers] => stdClass Object
+     *                 (
+     *                     [Verizon] => stdClass Object
+     *                         (
+     *                             [status] => incompatible
+     *                             [status_details] => "The phone associated with the Device ID you entered is not compatible with the Verizon Wireless network."
+     *                             [carrier_title] => Verizon
+     *                         )
+     * 
+     *                     [AT&T] => stdClass Object
+     *                         (
+     *                             [status] => blacklisted
+     *                             [status_details] => stdClass Object
+     *                                 (
+     *                                     [refcode] => 3007XXXXXXX122
+     *                                     [responsestatus] => success
+     *                                     [IMEI] => 99000XXXXXXX35
+     *                                     [blackliststatus] => Yes
+     *                                     [greyliststatus] => No
+     *                                     [imeihistory] => Array
+     *                                         (
+     *                                             [0] => stdClass Object
+     *                                                 (
+     *                                                     [action] => Black Insert
+     *                                                     [date] => 2015-03-21 06:16:05.0
+     *                                                     [by] => Sprint
+     *                                                     [Country] => United States
+     *                                                 )
+     * 
+     *                                         )
+     * 
+     *                                     [manufacturer] => Apple Inc.
+     *                                     [brandname] => Apple
+     *                                     [marketingname] => Apple iPhone 5 (A1429)
+     *                                     [modelname] => iPhone 5 (A1429)
+     *                                     [band] => CDMA2000,LTE FDD Band 25,LTE FDD BAND 13,LTE FDD BAND 5,LTE FDD BAND 3,LTE FDD BAND 1,HSUPA,HSDPA,WCDMA FDD Band VIII,WCDMA FDD Band V,WCDMA FDD Band II,WCDMA FDD Band I,GSM 1900,GSM 1800,GSM 900,GSM850 (GSM800)
+     *                                     [operatingsys] => Not Known
+     *                                     [nfc] => Not Known
+     *                                     [bluetooth] => Not Known
+     *                                     [WLAN] => Not Known
+     *                                     [devicetype] => Handheld
+     *                                 )
+     * 
+     *                             [carrier_title] => AT&T
+     *                         )
+     * 
+     *                     [Sprint] => stdClass Object
+     *                         (
+     *                             [status] => blacklisted
+     *                             [status_details] => stdClass Object
+     *                                 (
+     *                                     [refcode] => 300XXXXXXX3123
+     *                                     [responsestatus] => success
+     *                                     [IMEI] => 99000279264835
+     *                                     [blackliststatus] => Yes
+     *                                     [greyliststatus] => No
+     *                                     [imeihistory] => Array
+     *                                         (
+     *                                             [0] => stdClass Object
+     *                                                 (
+     *                                                     [action] => Black Insert
+     *                                                     [date] => 2015-03-21 06:16:05.0
+     *                                                     [by] => Sprint
+     *                                                     [Country] => United States
+     *                                                 )
+     * 
+     *                                         )
+     * 
+     *                                     [manufacturer] => Apple Inc.
+     *                                     [brandname] => Apple
+     *                                     [marketingname] => Apple iPhone 5 (A1429)
+     *                                     [modelname] => iPhone 5 (A1429)
+     *                                     [band] => CDMA2000,LTE FDD Band 25,LTE FDD BAND 13,LTE FDD BAND 5,LTE FDD BAND 3,LTE FDD BAND 1,HSUPA,HSDPA,WCDMA FDD Band VIII,WCDMA FDD Band V,WCDMA FDD Band II,WCDMA FDD Band I,GSM 1900,GSM 1800,GSM 900,GSM850 (GSM800)
+     *                                     [operatingsys] => Not Known
+     *                                     [nfc] => Not Known
+     *                                     [bluetooth] => Not Known
+     *                                     [WLAN] => Not Known
+     *                                     [devicetype] => Handheld
+     *                                 )
+     * 
+     *                             [carrier_title] => Sprint
+     *                         )
+     * 
+     *                     [T-Mobile] => stdClass Object
+     *                         (
+     *                             [status] => in_progress
+     *                             [status_details] => 
+     *                             [carrier_title] => T-Mobile
+     *                         )
+     * 
+     *                 )
+     * 
+     *         )
+     * 
+     * )
+     * </pre>
+     */
+    public static function poll($esn = false, $user_id = false, $sealed = false) {
+        
+        if(!$esn) {
+            throw \ExceptionHandler::missingParameterException(__('You must specify ESN to cancel query'));
+        }
+        if(!$user_id) {
+            throw \ExceptionHandler::missingParameterException(__('You must be authorized to cancel query'));
+        }
+        if(!$sealed) {
+            throw \ExceptionHandler::noAccessException(__('Access not allowed'));
+        }
+        
+        //poll the status of the latest query with specified ESN
+        if($query = \DS::getEM()->getRepository('\Entities\Query')->findOneBy(array('esn' => $esn), array('created' => 'DESC'))) {
+            return $query->statusReport();
+        } else {
+            throw \ExceptionHandler::wrongParametersException(__('Query does not exist.'));
+        }
+    }
+    
+    /**
+     * Receives the callback from Vendor and updates SubQueries and Query status respectively
+     * 
+     * @param integer $sub_query_id
+     * @param string $status
+     * @param string $status_details
+     * @param boolean $sealed
+     * @param integer $user_id
+     * 
+     * @return boolean
+     * 
+     * @throws \MissingParameterException
+     * @throws \NoAccessException
+     */
+    public static function status_callback($sub_query_id = false, $status = false, $status_details = false, $sealed = false, $user_id = false) {
+        if(!$user_id) {
+            throw \ExceptionHandler::missingParameterException(__('You must be authorized to cancel query'));
+        }
+        if(!$sealed) {
+            throw \ExceptionHandler::noAccessException(__('Access not allowed'));
+        }
+        /**
+         * @todo Verify vendor
+         */
+        //Fetch respective SubQuery and update it's status
+        $qb = \DS::getEM()->createQueryBuilder();
+        $qb
+            ->select('sq')
+            ->from('Entities\SubQuery', 'sq')
+            ->where('sq.id = :sub_query_id')
+            ->andWhere('sq.started IS NOT NULL')
+            ->andWhere('sq.completed IS NULL')
+            ->andWhere('sq.canceled IS NULL')
+            ->andWhere('sq.failed IS NULL')
+            ->setParameter('sub_query_id', (int)$sub_query_id);
+        if($subQueries = $qb->getQuery()->getResult()) {
+            //Update SubQuery status accordingly if access granted
+            //In fact there is only one SubQuery, loop is only to withdraw it from array returned by query
+            foreach($subQueries as &$subQuery) {
+                $subQuery->updateStatus($status, $status_details);
+                \DS::getEM()->persist($subQuery);
+                \DS::getEM()->flush();
+                if(!($incompleteSubQueries = \DS::getEM()->getRepository('\Entities\SubQuery')->findBy(array('queryId' => $subQuery->getQueryId(), 'completed' => null)))) {
+                    //Check Query status and update it too if this was the last SubQuery to wait => only in case of finishing of all of SubQueries
+                    if($query = \DS::getEM()->getRepository('\Entities\Query')->find($subQuery->getQueryId())) {
+                        $query->updateStatus();
+                        \DS::getEM()->persist($query);
+                        \DS::getEM()->flush();
+                    }
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+}

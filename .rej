@@ -1,0 +1,103 @@
+--- dispatcher.php
++++ dispatcher.php
+@@ -144,8 +144,8 @@
+                 * Sealing and finding auth credentials HERE => before any new data elements are detected
+                 */
+                $sealed = false;
+-                if ($authData = $this->getAuth($this->detectedInputData['public_key'])) {
+-                    $signature = \Signet::plainSha1($this->detectedInputData, $authData->getPrivateKey());
++                if ($this->authData = $this->getAuth($this->detectedInputData['public_key'])) {
++                    $signature = \Signet::plainSha1($this->detectedInputData, $this->authData->getPrivateKey());
+                     //The client-side encoded data and data being verified must be the same.
+                     $sealed = ((!empty($this->detectedInputData['signature'])) && ($this->detectedInputData['signature'] === $signature));
+                 }
+@@ -160,8 +160,8 @@
+          * Those elements could be considered having reserved names => if parameters with same names were passed, values will be overridden
+          */
+         $this->detectedInputData['request_method'] = $requestMethod;
+-        if($authData) {
+-            $this->detectedInputData['user_id'] = $authData->getId();
++        if($this->authData) {
++            $this->detectedInputData['user_id'] = $this->authData->getId();
+         } else {
+             $this->detectedInputData['user_id'] = false;
+         }
+@@ -197,19 +197,6 @@
+         if(!array_key_exists('service', $this->detectedInputData) || empty($this->detectedInputData['service'])) {
+             $this->detectedInputData['service'] = 'Hello_0_1';
+         }
+-        
+-        /**
+-        * Handle service version and instantiate a service
+-        */
+-        if ($serviceName = $this->checkFullServiceName($this->detectedInputData['service'], $this->detectedInputData['version'])) {
+-            if(class_exists($serviceName)) {
+-                $this->service = new $serviceName($authData, $sealed);
+-            } else {
+-                throw \ExceptionHandler::wrongParametersException(__('Could not reliably determine service and/or version'));
+-            }
+-        } else {
+-            throw \ExceptionHandler::wrongParametersException(__('Service does not exist'));
+-        }
+     }
+     
+     /**
+@@ -220,6 +207,15 @@
+      * @throws Exception
+      */
+     public function run() {
++        /**
++        * Handle service version and instantiate a service
++        */
++        if ($serviceName = $this->checkFullServiceName($this->detectedInputData['service'], $this->detectedInputData['version'])) {
++            $this->service = new $serviceName($this->authData, $this->detectedInputData['sealed']);
++        } else {
++            throw \ExceptionHandler::wrongParametersException(__('Service does not exist'));
++        }
++        
+         $params = (new \ReflectionMethod($this->service, $this->detectedInputData['operation']))->getParameters();
+         //In case function expects some parameters => collect values from array of detecte input
+         if(!empty($params)) {
+@@ -332,8 +328,14 @@
+         if(empty($className)) {
+             throw \ExceptionHandler::wrongParametersException(__('Could not reliably determine service and/or version'));
+         }
+-
+-        return '\Services' . $namespaceName . '\\' . $className;
++        
++        $serviceClassName = '\Services' . $namespaceName . '\\' . $className;
++        
++        if(!class_exists($serviceClassName)) {
++            throw \ExceptionHandler::wrongParametersException(__('Service does not exist'));
++        }
++        
++        return $serviceClassName;
+     }
+     
+     /**
+@@ -378,6 +380,10 @@
+          * 500 Internal Server Error 
+          * 503 Service Unavailable
+          */
++        $this->setStatus('failure');
++        $response = new \stdClass();
++        $response->message = $exception->getMessage();
++        return $this->outputProcessor->generate($this->getStatus(), $response);
+     }
+     
+     /**
+--- query.php
++++ query.php
+@@ -124,9 +124,12 @@
+                         
+                         $vendorsByCarrier = \DS::getEntityManager()->getRepository('Entities\Vendor')->getVendorsByCarrier();
+                         
++                        $existingCarrier = false;
++                        
+                         if($carrier_id) {
+                             $carrier = $carrier_id;
+                         }
++                        
+                         if($carrier) {
+                             if(isValueNumeric($carrier)) {
+                                 $existingCarrier = \DS::getEntityManager()->getRepository('\Entities\Carrier')->find(intval($carrier));

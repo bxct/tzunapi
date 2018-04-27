@@ -1,0 +1,24 @@
+{
+    "name": "vendor/tsunami-a-p-i",
+    "description": "Description of project TsunamiAPI.",
+    "authors": [
+        {
+            "name": "Anton",
+            "email": "amatiyenko@gmail.com"
+        }
+    ],
+    "require": {
+        "php": ">=5.4.0",
+        "doctrine/orm": "2.x",
+        "jms/serializer": "0.16.0",
+        "guzzlehttp/ringphp": "^1.1",
+        "guzzlehttp/guzzle": "^5.0",
+        "jpgraph/jpgraph": "dev-master",
+        "videlalvaro/php-amqplib": "dev-master"
+    },
+    "require-dev": {
+        "ext-curl": "*",
+        "phpunit/phpunit": "^4.0",
+        "phpunit/phpunit-skeleton-generator": "*"
+    }
+}

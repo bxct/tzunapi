@@ -1,0 +1,177 @@
+<?php
+
+namespace Services_0_1;
+
+use Doctrine\ORM\Query\ResultSetMappingBuilder;
+use Doctrine\ORM\Query\ResultSetMapping;
+
+class Cron extends \Services_0_1\BaseService {
+
+    /**
+     * 
+     * @param type $request_method
+     * @throws type
+     */
+    public static function check_unassigned_sub_queries($request_method) {
+        if ($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        //Find stack of unassigned sub queries
+        if($subQueries = \DS::getEM()->getRepository('\Entities\SubQuery')->findBy(array('vendorId' => null, 'started' => null, 'completed' => null, 'canceled' => null, 'failed' => null), null, 5, 0)) {
+            //Find most available Vendor
+            $rsm = new ResultSetMappingBuilder(\DS::getEM());
+            $rsm->addRootEntityFromClassMetadata('\Entities\AvailableVendor', 'v');
+            $sql = "SELECT q.* FROM (SELECT 
+        v.*, 
+        cv.`carrier_id`,
+        (v.`stack_size`-v.`completed`-v.`failed`) AS active_jobs
+    FROM 
+        `carriers_vendors` cv
+        RIGHT JOIN `vendors` v 
+            ON v.`id` = cv.`vendor_id`
+    WHERE 
+        v.disabled IS NULL
+        AND v.activated IS NOT NULL
+    ORDER BY 
+        v.`failed` ASC,
+        (v.`stack_size`-v.`completed`-v.`failed`) ASC) q
+    GROUP BY q.`carrier_id`;";
+            $q = \DS::getEM()->createNativeQuery($sql, $rsm);
+            $vendors = $q->getResult();
+            $vendorsByCarrier = array();
+            if (!empty($vendors)) {
+                foreach ($vendors as $k => $v) {
+                    unset($vendors[$k]);
+                    $vendorsByCarrier[$v->getCarrierId()] = $v;
+                }
+            }
+            
+            foreach($subQueries as &$subQuery) {
+                //Check if Vendor was available at the moment of call
+                if (array_key_exists($subQuery->getCarrierId(), $vendorsByCarrier)) {
+                    //Yes - use the vendor that has been found
+                    $nextVendor = $vendorsByCarrier[$subQuery->getCarrierId()];
+                } else {
+                    //No - try to create a new Vendor
+                    if(!$nextVendor = \DS::getEM()->getRepository('\Entities\Vendor')->create()) {
+                        continue;
+                    }
+                }
+                $subQuery->setVendorId($nextVendor->getId());
+                $subQuery->setAttempts(1);
+                
+                //Increment Vendor stack
+                $q = \DS::getEM()->createQuery('UPDATE \Entities\Vendor v SET v.stackSize=(v.stackSize+1) WHERE v.id = :vid');
+                $q->setParameter('vid', $nextVendor->getId());
+                $q->execute();
+                
+                //Publish SubQuery at Vendor instance
+                $subQuery->publish($nextVendor);
+                \DS::getEM()->flush();
+            }
+            return true;
+        }
+        
+        return false;
+    }
+
+    public static function check_old_sub_queries($request_method) {
+        if ($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        
+        
+        $now = new \DateTime();
+        //Find old unfished SubQueries (in portions)
+        //Fetch respective SubQuery and update it's status
+        $qb = \DS::getEM()->createQueryBuilder();
+        $qb
+            ->select('sq')
+            ->from('Entities\SubQuery', 'sq')
+            ->where('sq.started <= :started_date')
+            ->andWhere('sq.started IS NOT NULL')
+            ->andWhere('sq.completed IS NULL')
+            ->andWhere('sq.canceled IS NULL')
+            ->andWhere('sq.failed IS NULL')
+            ->setParameter('started_date', $now->add(\DateInterval::createFromDateString('-3 minute')))
+            ->setFirstResult( 0 )
+            ->setMaxResults( 5 );
+        if($subQueries = $qb->getQuery()->getResult()) {
+            //Update SubQuery status accordingly if access granted
+            //In fact there is only one SubQuery, loop is only to withdraw it from array returned by query
+            foreach($subQueries as &$subQuery) {
+                //Poll respective vendor for each SubQuery's status
+                if($jobStatus = $subQuery->pollJobStatus()) {
+                    
+                    $subQueryChanged = false;
+                    //Update SubQuery status according to it's status in vendor database
+                    
+                    if($jobStatus->completed) {
+                        $subQuery->setCompleted(new \DateTime($jobStatus->completed));
+                        $subQueryChanged = true;
+                    }
+                    if($jobStatus->canceled) {
+                        $subQuery->setCanceled(new \DateTime($jobStatus->canceled));
+                        $subQueryChanged = true;
+                    }
+                    if($jobStatus->failed) {
+                        $jobStatus->status = 'failed';
+                        $subQuery->setFailed(new \DateTime($jobStatus->failed));
+                        $subQueryChanged = true;
+                    }
+                    if($jobStatus->status) {
+                        $subQueryChanged = true;
+                    }
+                    if($jobStatus->status_details) {
+                        $subQueryChanged = true;
+                    }
+                    if($subQueryChanged) {
+                        $subQuery->updateStatus($jobStatus->status, $jobStatus->status_details);
+                        \DS::getEM()->persist($subQuery);
+                        \DS::getEM()->flush();
+                        //If all SubQueries finished => update common Query status
+                        if(!($incompleteSubQueries = \DS::getEM()->getRepository('\Entities\SubQuery')->findBy(array('queryId' => $subQuery->getQueryId(), 'completed' => null)))) {
+                            //Check Query status and update it too if this was the last SubQuery to wait => only in case of finishing of all of SubQueries
+                            if($query = \DS::getEM()->getRepository('\Entities\Query')->find($subQuery->getQueryId())) {
+                                $query->updateStatus();
+                                \DS::getEM()->persist($query);
+                                \DS::getEM()->flush();
+                            }
+                        }
+                    }
+                } else {
+                    //If Vendor is unreachable
+                    /**
+                     * @todo
+                     * 
+                     * 4. Check Vendor's status and availability
+                     * 4.1. Check Vendor's recent SubQueries and do related actions
+                     * 4.2. If too many failures for some Carrier => detach related Carrier
+                     * 4.2.1. If no available Carriers for Vendor => deactivate Vendor
+                     */
+                    $subQuery->updateStatus('failed', __('Vendor is unreachable'));
+                    \DS::getEM()->persist($subQuery);
+                    \DS::getEM()->flush();
+                }
+            }
+            return true;
+        } else {
+            return false;
+        }//Fetch respective SubQuery and update it's status
+    }
+
+    public static function query_canceled($request_method) {
+        if ($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        /**
+         * @todo
+         * Implement deferred cancelation procedure for query which is pending
+         * 1. Find all canceled queries
+         * 2. Find every unfinished SubQuery and call it's Vendor to cancel => save some Vendor lifetime
+         * 3. Update status for each SubQuery: completed=NOW()
+         */
+    }
+
+}
+

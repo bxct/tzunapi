@@ -1,0 +1,71 @@
+{
+    "builders": [
+        {
+            "type": "amazon-ebs",
+            "access_key": "{{user `aws_access_key`}}",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "region": "us-west-2",
+            "source_ami": "ami-5189a661",
+            "instance_type": "t2.micro",
+            "ssh_username": "ubuntu",
+            "ami_name": "tsunami-vendor-instance-box {{timestamp}}"
+        }
+    ],
+    "provisioners": [
+        {
+            "environment_vars": [
+                "CM={{user `cm`}}",
+                "CM_VERSION={{user `cm_version`}}",
+                "CLEANUP_PAUSE={{user `cleanup_pause`}}",
+                "UPDATE={{user `update`}}",
+                "INSTALL_VAGRANT_KEY={{user `install_vagrant_key`}}",
+                "SSH_USERNAME={{user `ssh_username`}}",
+                "SSH_PASSWORD={{user `ssh_password`}}",
+                "GITHUB_USER={{user `github_user`}}",
+                "GITHUB_PASSWORD={{user `github_password`}}",
+                "MYSQL_PASSWORD={{user `mysql_password`}}",
+                "RABBITMQ_COMMON_PORT={{user `rabbitmq_common_port`}}",
+                "RABBITMQ_USER={{user `rabbitmq_user`}}",
+                "RABBITMQ_PASSWORD={{user `rabbitmq_password`}}",
+                "RABBITMQ_EXCHANGE={{user `rabbitmq_exchange`}}",
+                "rsync_proxy={{user `rsync_proxy`}}",
+                "no_proxy={{user `no_proxy`}}"
+            ],
+            "execute_command": "echo '{{ user `ssh_password` }}' | {{.Vars}} sudo -E -S bash '{{.Path}}'",
+            "scripts": [
+                "script/update.sh",
+                "script/lamp.sh",
+                "script/tsunami_vendor.sh"
+            ],
+            "type": "shell"
+        }
+    ],
+    "variables": {
+        "cleanup_pause": "",
+        "cm": "nocm",
+        "cm_version": "",
+        "custom_script": ".",
+        "ftp_proxy": "{{env `ftp_proxy`}}",
+        "headless": "",
+        "http_proxy": "{{env `http_proxy`}}",
+        "https_proxy": "{{env `https_proxy`}}",
+        "install_vagrant_key": "true",
+        "no_proxy": "{{env `no_proxy`}}",
+        "rsync_proxy": "{{env `rsync_proxy`}}",
+        "hostname": "ubuntu",
+        "ssh_fullname": "ubuntu",
+        "ssh_password": "ubuntu",
+        "ssh_username": "ubuntu",
+        "mysql_password": "QdDSeddsd32322dSWddsddKKdjjdk",
+        "github_user": "tsunami-deploy",
+        "github_password": "wiaf%iek5Vee9eim1aef}ekiexooy",
+        "rabbitmq_common_port": "5677",
+        "rabbitmq_user": "guest",
+        "rabbitmq_password": "ieL0eh2Sing1",
+        "rabbitmq_exchange": "jobs",
+        "tsunami_api_protocol": "http",
+        "update": "false",
+        "version": "0.1.0",
+        "preseed": "preseed.cfg"
+    }
+}

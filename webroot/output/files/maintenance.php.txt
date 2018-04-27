@@ -1,0 +1,178 @@
+<?php
+
+namespace Services_0_1;
+
+class Maintenance extends \Services_0_1\BaseService {
+
+    /**
+     * Default operation
+     * 
+     * @param string $request_method
+     * @return string
+     * 
+     * @throws \NoAccessException
+     */
+    public function index($request_method) {
+        //Block maintenance from access as regular API service
+        if($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        return __('Welcome to Tsunami v.0.1 Maintenance console');
+        /**
+         * @todo Return some help if no necessary parameters specified
+         */
+    }
+    
+    /**
+     * ???
+     * 
+     * @param string $request_method
+     * @return string
+     * 
+     * @throws \NoAccessException
+     */
+    public function query_status($request_method) {
+        //Block maintenance from access as regular API service
+        if($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        return __('Welcome to Tsunami v.0.1 Maintenance console');
+        /**
+         * @todo Return some help if no necessary parameters specified
+         */
+    }
+    
+    /**
+     * Creates new Carrier entry
+     * 
+     * @param string $title
+     * @param string $request_method
+     * 
+     * @return \stdObject
+     * 
+     * @throws \NoAccessException
+     * @throws \MissingParameterException
+     * @throws \WrongParametersException
+     */
+    public function add_carrier($title = false, $request_method = false) {
+        return \Services_0_1\Carriers::add($title, $request_method);
+    }
+    
+    /**
+     * Enables existing carrier
+     * 
+     * @param string|integer $carrier title or ID of carrier
+     * @param string $request_method
+     * 
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     * @throws \WrongParametersException
+     * @throws \MissingParameterException
+     */
+    public function enable_carrier($carrier = false, $request_method = false) {
+        return \Services_0_1\Carriers::enable($carrier, $request_method);
+    }
+    
+    /**
+     * Disables existing carrier
+     * 
+     * @param string|integer $carrier title or ID of carrier
+     * @param string $request_method
+     * 
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     * @throws \MissingParameterException
+     * @throws \WrongParametersException
+     */
+    public function disable_carrier($carrier = false, $request_method = false) {
+        return \Services_0_1\Carriers::disable($carrier, $request_method);
+    }
+    
+    /**
+     * Creates new Vendor instance
+     * 
+     * @param string $title
+     * @param string $request_method
+     * 
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     * @throws \MissingParameterException
+     * @throws \WrongParametersException
+     */
+    public function add_vendor($hostname = false, $request_method = false) {
+        return \Services_0_1\Vendors::add($hostname, $request_method);
+    }
+    
+    /**
+     * Enables specified Vendor entry in database, so it may again receive new jobs
+     * 
+     * @param integer|string $vendor ID or hostname of Vendor to Enable
+     * @param string $request_method
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     * @throws \WrongParametersException
+     */
+    public function enable_vendor($vendor=false, $request_method = false) {
+        return \Services_0_1\Vendors::enable($vendor, $request_method);
+    }
+    
+    /**
+     * Disables specified Vendor entry in database, so it does not receive any new jobs
+     * 
+     * @param integer|string $vendor ID or hostname of Vendor to Enable
+     * @param string $request_method
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     * @throws \WrongParametersException
+     */
+    public function disable_vendor($vendor=false, $request_method = false) {
+        return \Services_0_1\Vendors::disable($vendor, $request_method);
+    }
+    
+    /**
+     * Attaches new Carrier support to a Vendor
+     * 
+     * @param string|integer $vendor hostname or ID of vendor
+     * @param string|integer $carrier title or ID of carrier
+     * @param string $request_method
+     * 
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     */
+    public function add_vendor_carrier($vendor = false, $carrier = false, $request_method = false) {
+        return \Services_0_1\Vendors::attach_carrier($vendor, $carrier, $request_method);
+    }
+    
+    /**
+     * Detaches Carrier support from a Vendor
+     * 
+     * @param string|integer $vendor hostname or ID of vendor
+     * @param string|integer $carrier title or ID of carrier
+     * @param string $request_method
+     * 
+     * @return \stdClass
+     * 
+     * @throws \NoAccessException
+     */
+    public function detach_vendor_carrier($vendor = false, $carrier = false, $request_method = false) {
+        return \Services_0_1\Vendors::detach_carrier($vendor, $carrier, $request_method);
+    }
+    
+    public function cancel_query($request_method = false) {
+        //Block maintenance from access as regular API service
+        if($request_method !== 'CLI') {
+            throw \ExceptionHandler::noAccessException(__('Maintenance console is not accessible this way.'));
+        }
+        /**
+         * @todo Cancel query
+         */
+    }
+
+}
+

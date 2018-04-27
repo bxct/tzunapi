@@ -1,0 +1,18 @@
+Vagrant.configure(2) do |config|
+  # config.vm.box = "dummy"
+  config.vm.provider :aws do |aws, override|
+    aws.access_key_id = "ACCESS_KEY_ID"
+    aws.secret_access_key = "SECRECT_ACCESS_KEY"
+    aws.keypair_name = "second"
+    aws.ami = "ami-0f36393f"
+    aws.region = "us-west-2"
+    aws.instance_type = "t2.micro"
+    aws.security_groups = [ 'vendor_deploy' ]
+
+    override.vm.box = "dummy"
+    override.ssh.username = "ubuntu"
+    override.ssh.private_key_path = "./key.pem"
+    # override.ssh.private_key_path = "../private_ssh.txt"
+  end
+  config.vm.provision "shell", path: "tsunami_vagrant.sh", args: "'PUBLIC_KEY' 'PRIVATE_KEY' 'API_ENDPOINT' 'API_PROTOCOL'"
+end

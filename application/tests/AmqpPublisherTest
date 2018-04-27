@@ -1,0 +1,92 @@
+<?php
+
+require_once('../../init/test.common.php');
+
+use PhpAmqpLib\Message\AMQPMessage;
+
+class AmqpPublisherTest extends \PHPUnit_Framework_TestCase {
+    
+    private $jobsforV1 = 0;
+    
+    protected $esn = array(
+        'A0000008ACEA1B',
+        'A0000002C7D7BB',
+        '013331004558909',
+        '013439005665737',
+        '354439054250982',
+        '013334008033845',
+    );
+    
+    public function test_Amqp_publish() {
+        $vendors = \DS::getEM()->getRepository('\Entities\Vendor')->findAll();
+        $carriers = \DS::getEM()->getRepository('\Entities\Carrier')->findAll();
+        foreach($this->esn as $esn) {
+            $vendorId = 1;//$vendors[array_rand($vendors)]->getId();
+            $carrierId = $carriers[array_rand($carriers)]->getId();
+            $subQueryId = rand(1,100);
+            $this->assertTrue(\JobPublishers\Amqp::publishJob($esn, $vendorId, $carrierId, $subQueryId));
+        }
+    }
+    
+    public function test_Amqp_massive_publish() {
+//        $vendors = \DS::getEM()->getRepository('\Entities\Vendor')->findAll();
+        $carriers = \DS::getEM()->getRepository('\Entities\Carrier')->findAll();
+        $esns = array(
+            'A0000008ACEA1B',
+            'A0000002C7D7BB',
+            '013331004558909',
+            '013439005665737',
+            '354439054250982',
+            '013334008033845',
+            '013287002380325',
+            '13973004933605',
+            '99000449728968',
+            '990003431422100',
+            '013287002541884',
+            '13967004951419',
+            '99000449728599',
+            '990003431478508',
+            '013287002347746',
+            '13967005008557',
+            '99000449728554',
+            '990003431784921',
+            '013287002478954',
+            '13968005005023',
+            '99000449728571',
+            '990003431816855',
+            '013287002511341',
+            '357518050909654',
+            '99000449727631',
+            '990003432179006',
+        );
+        foreach($esns as $esn) {
+            $vendorId = 1;//$vendors[array_rand($vendors)]->getId();
+            $carrierId = $carriers[array_rand($carriers)]->getId();
+            $subQueryId = rand(1,100);
+            $this->assertTrue(\JobPublishers\Amqp::publishJob($esn, $vendorId, $carrierId, $subQueryId));
+        }
+    }
+    
+//    public function test_process_job() {
+//        $carriers = \DS::getEM()->getRepository('\Entities\Carrier')->findAll();
+//        $publisher = new \JobPublishers\Amqp();
+//        $jobs = count(\DS::getEM()->getRepository('\Entities\Job')->findAll());
+//        foreach($this->esn as $esn) {
+//            $message = new AMQPMessage(json_encode(array(
+//                'esn' => $esn,
+//                'carrier_id' => $carrierId = $carriers[array_rand($carriers)]->getId(),
+//                'sub_query_id' => rand(1,100)
+//            )), array('content_type' => 'application/json', 'delivery_mode' => AMQPMessage::DELIVERY_MODE_PERSISTENT));
+//            
+//            $publisher->processAJob($message);
+//        }
+//        $this->assertEquals(count($this->esn), count(\DS::getEM()->getRepository('\Entities\Job')->findAll())-$jobs);
+//    }
+    
+    public function test_process_amqp() {
+        \Config::write('job_publisher', 'Amqp');
+        $publisher = new \JobPublishers\Amqp();
+        $this->assertGreaterThan(0, $publisher->processJobs());
+    }
+
+}

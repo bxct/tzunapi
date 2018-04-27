@@ -1,0 +1,12 @@
+<?php
+
+namespace Services_0_1;
+
+class Hello extends \Services_0_1\BaseService {
+
+    public function index() {
+        return __('Welcome to Tsunami v.0.1');
+    }
+
+}
+
